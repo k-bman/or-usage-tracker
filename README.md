@@ -14,8 +14,8 @@ cd or-usage-tracker
 
 That creates a virtualenv in `./.venv`, installs the dependencies (~300 MB, mostly
 Qt), adds an "OR Usage Tracker" entry to your application menu, links an
-`ortracker` command into `~/.local/bin`, and runs the test suite. Takes about
-15 seconds.
+`ortracker` command into `~/.local/bin`. A first run takes a
+couple of minutes, mostly downloading PySide6; later runs reuse the venv.
 
 Then launch it — from the application menu, or:
 
@@ -26,7 +26,8 @@ ortracker
 Open **Settings** (Ctrl+,) and paste your OpenRouter API key. Nothing else to
 configure; the key goes to your system keyring and is never written to disk.
 
-To remove it later: `./uninstall.sh`, then `rm -rf .venv`.
+To remove it later: `./uninstall.sh --purge` (add `--purge` to also delete the
+virtualenv, the config and, when you confirm the prompt, the stored API key).
 
 ## Features
 
@@ -85,13 +86,18 @@ cd or-usage-tracker
 ./install.sh
 ```
 
-The installer creates `./.venv`, installs the app and its test dependencies,
-verifies PySide6 / the Wayland plugin / your keyring backend, installs a
-desktop entry in `~/.local/share/applications/`, links `ortracker` into
-`~/.local/bin`, and runs the test suite.
+The installer creates `./.venv`, installs the app and its runtime
+dependencies, verifies PySide6 / the Wayland plugin / your keyring backend,
+installs a desktop entry in `~/.local/share/applications/`, and links
+`ortracker` into `~/.local/bin`. It does not install the test extras and does
+not run the test suite.
 
 The virtualenv means your system Python is left untouched, and
-`./uninstall.sh` plus `rm -rf .venv` removes everything it added.
+`./uninstall.sh --purge` removes everything it added: the desktop entry, the
+`~/.local/bin` launcher, `./.venv`, the editable-install metadata,
+`~/.config/ortracker`, and — if you confirm the prompt — the API key in your
+keyring. Without `--purge` it only removes the desktop entry and the launcher,
+and prints what is left.
 
 A **management key** is recommended over a regular API key — the usage
 endpoints need account-level access, and management keys cannot make
@@ -338,13 +344,14 @@ or-usage-tracker/
 │       └── QuotaApplication        # QApplication subclass (owns tray, window, quit)
 ├── tests/
 │   ├── __init__.py
+│   ├── conftest.py          # Forces the headless Qt platform for every run
 │   ├── test_usage.py        # Usage calculation tests
 │   ├── test_api_client.py   # API client tests
 │   ├── test_state_config.py # Config, state and credential tests
 │   └── test_gui.py          # PySide6 GUI and system tray tests (pytest-qt)
 ├── run                      # Convenience launcher (uses ./.venv)
 ├── run.py                   # Standalone launcher (uses the invoking interpreter)
-├── install.sh               # Installer (.venv, desktop entry, launcher)
+├── install.sh               # Installer (.venv, desktop entry, launcher; no tests)
 ├── uninstall.sh             # Uninstaller script
 └── or-usage-tracker.desktop # Desktop entry file
 ```
@@ -381,10 +388,21 @@ If `/keys` or `/activity` endpoints fail (requires Management key), the app fall
 ## Running tests
 
 ```bash
+# The installer brings in the runtime dependencies only; add the test extras:
+./.venv/bin/python -m pip install -e ".[dev]"
+
 ./.venv/bin/python -m pytest tests/ -q
 ```
 
-The tests run headless; CI sets `QT_QPA_PLATFORM=offscreen` for the Qt ones.
+The tests always run headless: `tests/conftest.py` forces
+`QT_QPA_PLATFORM=offscreen` before Qt loads, so the GUI tests never open windows
+on your real desktop session (a desktop environment may export
+`QT_QPA_PLATFORM=wayland;xcb`, which would otherwise make every widget a real
+compositor window). Set `ORTRACKER_TEST_PLATFORM=wayland` to override that for
+a single debugging run.
+
+`install.sh` does not run the suite — its dependency checks are the
+install-time verification, and the tests belong to development and CI.
 
 ### Continuous integration
 
@@ -429,15 +447,22 @@ Tests use mocked API responses — no real OpenRouter account or key is needed.
 ## Uninstallation
 
 ```bash
-./uninstall.sh
+./uninstall.sh          # desktop entry + ~/.local/bin launcher only
+./uninstall.sh --purge  # everything the installer added
 ```
 
-This removes the desktop entry. To remove the application files:
+`--purge` additionally removes `./.venv`, the `or_usage_tracker.egg-info`
+metadata and `~/.config/ortracker`, and asks before deleting your stored API
+key from the system keyring. Either way the script prints a summary of what it
+removed and what it deliberately left alone.
+
+The application directory itself is never deleted by the script. To remove the
+source as well:
 ```bash
 rm -rf /path/to/or-usage-tracker
 ```
 
-To remove your stored API key:
+If you ever remove the keyring entry by hand instead:
 ```bash
 ./.venv/bin/python -c "import keyring; keyring.delete_password('ortracker', 'default')"
 ```

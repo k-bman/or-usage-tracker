@@ -53,14 +53,18 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
+      # This step runs outside pytest, so tests/conftest.py never loads here --
+      # the platform has to be set explicitly for the check to mean anything.
       - name: Verify PySide6 imports
         env:
           QT_QPA_PLATFORM: offscreen
         run: python -c "from PySide6.QtGui import QGuiApplication; print('PySide6 imports OK')"
 
+      # No QT_QPA_PLATFORM here on purpose. tests/conftest.py forces the
+      # offscreen platform for every pytest run, and leaving it out of the
+      # environment means CI actually exercises that guarantee instead of
+      # hiding it behind a runner-only fallback.
       - name: Run tests
-        env:
-          QT_QPA_PLATFORM: offscreen
         run: python -m pytest tests/ -q
 
   secret-scan:
