@@ -1,19 +1,21 @@
 # Pre-commit hooks for or-usage-tracker.
 #
-# Only one hook: fail the commit when staged changes contain hardcoded
-# secrets (API keys, private keys, tokens).
+# Two hooks:
+#   - gitleaks:  fail the commit when staged changes contain hardcoded secrets
+#                (API keys, private keys, tokens)
+#   - shellcheck: lint the shell scripts
 #
-# `repo: local` + `language: system` runs the gitleaks binary from PATH
-# (packaged by Arch as `gitleaks`) instead of pre-compiling it in a Go
-# toolchain, so there is nothing to download on first run.
+# `repo: local` + `language: system` runs the binaries from PATH (packaged by
+# Arch as `gitleaks` and `shellcheck`) instead of pre-compiling them, so there
+# is nothing to download on first run.
 #
 # Setup:
-#   sudo pacman -S gitleaks pre-commit
+#   sudo pacman -S gitleaks shellcheck pre-commit
 #   pre-commit install
 #
 # Notes:
-#   - This scans staged content at commit time, not history.
-#   - It can be bypassed with `git commit --no-verify` or `SKIP=gitleaks`.
+#   - gitleaks scans staged content at commit time, not history.
+#   - Hooks can be bypassed with `git commit --no-verify` or `SKIP=<hook-id>`.
 #   - False positives are handled by scoping entries in .gitleaks.toml.
 repos:
   - repo: local
@@ -24,3 +26,10 @@ repos:
         entry: gitleaks git --pre-commit --redact --staged --verbose
         language: system
         pass_filenames: false
+
+      - id: shellcheck
+        name: Lint shell scripts
+        description: Run shellcheck over the shell scripts
+        entry: shellcheck
+        language: system
+        files: \.(sh|bash)$|^run$

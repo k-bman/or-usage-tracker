@@ -4,16 +4,25 @@
 #
 # This script:
 #   1. Detects the system package manager and reports missing system packages
-#   2. Creates a project-local virtualenv and installs the app + test deps into it
+#   2. Creates a project-local virtualenv and installs the app into it
+#      (runtime dependencies only, not the test extras)
 #   3. Verifies dependencies (including the Qt Wayland platform plugin)
 #   4. Installs the desktop entry to ~/.local/share/applications/
-#   5. Runs the test suite
+#   5. Links the ortracker launcher into ~/.local/bin
+#
+# It deliberately does NOT run the test suite. The dependency checks above are
+# the install-time verification; the tests are a development and CI concern
+# (see .github/workflows/tests.yml). They also create Qt windows, and running
+# them here would spawn real windows on the user's live desktop session.
+# To run them, add the test extras first:
+#   .venv/bin/python -m pip install -e ".[dev]"
+#   .venv/bin/python -m pytest
 #
 # The app runs from a virtualenv on purpose: several distributions (Arch among
 # them) do not package the PySide6 Python bindings, so they come from PyPI.
 #
 # Usage:  ./install.sh
-# Uninstall: ./uninstall.sh
+# Uninstall: ./uninstall.sh [--purge]
 
 set -e
 
@@ -98,9 +107,11 @@ else
     echo "  Virtualenv already exists, reusing it."
 fi
 
-echo "Installing application and test dependencies..."
+echo "Installing application dependencies..."
 "$VENV_PY" -m pip install --upgrade pip --quiet
-"$VENV_PY" -m pip install -e "$APP_DIR[dev]" --quiet
+# Runtime dependencies only. The test extras (.[dev]) are for contributors and
+# CI, which install them explicitly; end users never run the suite.
+"$VENV_PY" -m pip install -e "$APP_DIR" --quiet
 
 # --- Verify dependencies (inside the virtualenv) ---
 echo ""
@@ -215,11 +226,7 @@ else
     echo "  Linked $LAUNCHER -> $VENV_DIR/bin/ortracker"
 fi
 
-# --- Verify tests pass ---
-echo ""
-echo "Running tests..."
-"$VENV_PY" -m pytest "$APP_DIR/tests/" -v
-
+# --- Installation complete ---
 echo ""
 echo "=== Installation complete! ==="
 echo ""
