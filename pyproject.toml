@@ -42,7 +42,10 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP",
 ]
 dependencies = [
-    "PySide6>=6.5",
+    # PySide6-Essentials provides the QtCore/QtGui/QtWidgets bindings this app
+    # uses (~245 MB installed). The full PySide6 metapackage also pulls WebEngine,
+    # Qt3D and Quick, which are unused here and add ~430 MB.
+    "PySide6-Essentials>=6.5",
     "keyring>=23.0",
     "requests>=2.31",
 ]

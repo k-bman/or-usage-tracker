@@ -64,23 +64,28 @@ fi
 echo "Python 3: $(python3 --version) ($(command -v python3))"
 
 # --- System packages (informational) ---
-# PySide6 is intentionally absent from this list: most distributions do not
-# package the Python bindings, and the ones that do may lag behind PyPI.
-# The virtualenv below installs PySide6 from PyPI.
+# Python bindings are intentionally absent from this list: most distributions
+# do not package them, and the ones that do may lag behind PyPI. The
+# virtualenv below installs PySide6-Essentials from PyPI.
+#
+# What system packages *do* matter are Qt's native libraries, which pip cannot
+# provide. On a minimal system PySide6 fails at import with e.g.
+# "libEGL.so.1: cannot open shared object file". Desktop systems already have
+# them; see README.md for per-distro names.
 echo ""
-echo "Recommended system packages:"
+echo "Recommended system packages (Qt native libraries):"
 case "$PKG_MANAGER" in
     pacman)
-        echo "  pyside6 python-keyring python-secretstorage python-requests gnome-keyring"
+        echo "  libglvnd libxkbcommon fontconfig"
         ;;
     dnf)
-        echo "  python3-keyring python3-requests gnome-keyring"
+        echo "  mesa-libGL libxkbcommon fontconfig"
         ;;
     apt)
-        echo "  python3-keyring python3-requests gnome-keyring"
+        echo "  libegl1 libgl1 libxkbcommon0 libfontconfig1"
         ;;
     *)
-        echo "  keyring backend (gnome-keyring or KWallet), python3-requests"
+        echo "  libEGL, libGL, libxkbcommon, fontconfig"
         ;;
 esac
 
@@ -104,10 +109,10 @@ echo "Checking dependencies..."
 MISSING_PKGS=()
 
 if ! "$VENV_PY" -c "import PySide6" 2>/dev/null; then
-    MISSING_PKGS+=("PySide6 (pip install PySide6)")
-    echo "  PySide6: MISSING"
+    MISSING_PKGS+=("PySide6-Essentials (pip install PySide6-Essentials)")
+    echo "  PySide6-Essentials: MISSING"
 else
-    echo "  PySide6: OK"
+    echo "  PySide6-Essentials: OK"
 fi
 
 if QT_VERSION="$("$VENV_PY" -c 'from PySide6.QtCore import qVersion; print(qVersion())' 2>/dev/null)"; then

@@ -4,6 +4,30 @@ A lightweight Linux desktop application for tracking your OpenRouter API usage a
 
 Unofficial. Not affiliated with or endorsed by OpenRouter.
 
+## Quick start
+
+```bash
+git clone https://github.com/k-bman/or-usage-tracker.git
+cd or-usage-tracker
+./install.sh
+```
+
+That creates a virtualenv in `./.venv`, installs the dependencies (~300 MB, mostly
+Qt), adds an "OR Usage Tracker" entry to your application menu, links an
+`ortracker` command into `~/.local/bin`, and runs the test suite. Takes about
+15 seconds.
+
+Then launch it — from the application menu, or:
+
+```bash
+ortracker
+```
+
+Open **Settings** (Ctrl+,) and paste your OpenRouter API key. Nothing else to
+configure; the key goes to your system keyring and is never written to disk.
+
+To remove it later: `./uninstall.sh`, then `rm -rf .venv`.
+
 ## Features
 
 - **Free-model quota tracking**: See how many of your daily free-model requests are used / remaining / limit
@@ -21,39 +45,58 @@ Unofficial. Not affiliated with or endorsed by OpenRouter.
 
 ## Requirements
 
-- Linux (GNOME, KDE Plasma, Cinnamon, or other desktop environments)
+- Linux (GNOME, KDE Plasma, Cinnamon, Hyprland/Sway, or other desktops)
 - Python 3.10+
-- [PySide6](https://www.pyside.org/) >= 6.5 (Qt 6)
-- [keyring](https://pypi.org/project/keyring/) library
-- [requests](https://requests.readthedocs.io/) >= 2.31 (HTTP client)
+- A working keyring daemon (GNOME Keyring, KWallet) for credential storage
+- Qt's native libraries — already present on any desktop system; only a bare
+  server or container needs them installed explicitly (see below)
+
+Python dependencies (**PySide6-Essentials**, `keyring`, `requests`) are
+installed by `install.sh` into a virtualenv, so nothing needs to be installed
+system-wide.
 
 ## Installation
 
-```bash
-cd /path/to/or-usage-tracker
-./install.sh
-```
+### System packages
 
-The installer checks for dependencies, installs a desktop entry in
-`~/.local/share/applications/`, and runs the test suite.
-
-Or manually install:
+pip can supply the Python bindings but *not* Qt's native libraries. On a
+desktop system these are already present; on a minimal server or container,
+install them first:
 
 ```bash
-# Fedora
-sudo dnf install python3-keyring python3-requests
-# Ubuntu/Debian
-sudo apt install python3-keyring python3-requests
 # Arch
-sudo pacman -S --needed pyside6 python-keyring python-secretstorage python-requests gnome-keyring
-# Then install the app dependencies and launch it:
-./install.sh
-ortracker
+sudo pacman -S --needed libglvnd libxkbcommon fontconfig
+# Fedora
+sudo dnf install mesa-libGL libxkbcommon fontconfig
+# Ubuntu/Debian
+sudo apt install libegl1 libgl1 libxkbcommon0 libfontconfig1
 ```
 
-The installer creates a virtualenv in `./.venv` and installs the Python
-dependencies (including PySide6) into it, so the system Python is left
-untouched. See [Arch / Hyprland](#arch--hyprland-omarchy) for details.
+You do **not** need to install PySide6, keyring or requests yourself — the
+installer puts them in the virtualenv. (Note that most distributions don't
+package PySide6's Python bindings at all; see
+[Why a virtualenv](#why-a-virtualenv).)
+
+### Install
+
+```bash
+git clone https://github.com/k-bman/or-usage-tracker.git
+cd or-usage-tracker
+./install.sh
+```
+
+The installer creates `./.venv`, installs the app and its test dependencies,
+verifies PySide6 / the Wayland plugin / your keyring backend, installs a
+desktop entry in `~/.local/share/applications/`, links `ortracker` into
+`~/.local/bin`, and runs the test suite.
+
+The virtualenv means your system Python is left untouched, and
+`./uninstall.sh` plus `rm -rf .venv` removes everything it added.
+
+A **management key** is recommended over a regular API key — the usage
+endpoints need account-level access, and management keys cannot make
+inference calls, so they are safe to leave in place. Regular keys still work;
+the app falls back to `/key` for basic key info but shows less detail.
 
 ## Arch / Hyprland (Omarchy)
 
@@ -63,12 +106,25 @@ The app is a Qt6 (PySide6) application and runs natively on Wayland, so it works
 
 Arch does **not** package the PySide6 Python bindings — `python-pyside6` is in
 neither the `extra` repository nor the AUR (the `pyside6` package is the C++
-Qt6 library, not the Python module). `install.sh` therefore creates
-`./.venv` and installs PySide6, keyring and requests from PyPI there. The
-installed desktop entry runs the venv interpreter.
+Qt6 library, not the Python module). `install.sh` therefore creates `./.venv`
+and installs everything from PyPI there. The installed desktop entry runs the
+venv interpreter.
 
-The PySide6 wheel is an `abi3` build (`cp310-abi3`), so one wheel works across
+The PySide6 wheels are `abi3` builds (`cp310-abi3`), so one wheel works across
 Python 3.10–3.15, including Arch's current Python.
+
+### Why PySide6-Essentials
+
+The app imports only `QtCore`, `QtGui` and `QtWidgets`, all of which ship in
+the smaller **PySide6-Essentials** package. The full `PySide6` metapackage also
+pulls QtWebEngine, Qt3D and QtQuick, none of which are used here:
+
+| Package | Installed size |
+|---------|----------------|
+| `PySide6` (full) | 672 MB |
+| `PySide6-Essentials` | **245 MB** |
+
+The import name is identical (`PySide6`), so nothing in the code changes.
 
 ### Credentials on Hyprland
 
@@ -401,6 +457,7 @@ To remove your stored API key:
 | Symptom | Fix |
 |---------|-----|
 | `No module named PySide6` | run `./install.sh`, then launch with `ortracker` or `./run` |
+| `libEGL.so.1: cannot open shared object file` | Qt's native libraries are missing; see [System packages](#system-packages) |
 | Nothing happens when double-clicking `run.py` | the shebang uses the system Python; use `./run` ("Run as a Program") or the app menu instead |
 | App opens as a black or blank window | try `QT_QPA_PLATFORM=xcb` |
 | Keyring prompt on every launch | keyring is locked; log out and back in |
