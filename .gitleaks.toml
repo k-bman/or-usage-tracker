@@ -1,0 +1,17 @@
+# gitleaks configuration for or-usage-tracker.
+#
+# The default rule set is used unchanged; this file only adds an allowlist
+# entry so the deliberate fake key in the tests does not trip the scanner.
+#
+# The allowlist is deliberately narrow: it matches that single literal, not a
+# prefix like `sk-or-v1-*`. Allowlisting the prefix (or all of tests/) would
+# disable detection of real OpenRouter keys, which is the whole point.
+title = "gitleaks config for or-usage-tracker"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fake OpenRouter key used to verify error redaction (not a real key)"
+regexTarget = "secret"
+regexes = ['''sk-or-v1-TOPSECRET''']

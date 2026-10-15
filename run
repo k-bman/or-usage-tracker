@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+#
+# Convenience launcher: runs the app with the project virtualenv's Python.
+#
+# Useful when the system interpreter has no PySide6 (e.g. Arch) and for
+# double-clicking ("Run as a Program") in a file manager, where run.py's
+# shebang would otherwise pick the system Python.
+
+set -e
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_PY="$DIR/.venv/bin/python"
+
+if [ ! -x "$VENV_PY" ]; then
+    echo "No virtualenv found at $VENV_PY" >&2
+    echo "Run the installer first:  $DIR/install.sh" >&2
+    exit 1
+fi
+
+exec "$VENV_PY" "$DIR/run.py" "$@"

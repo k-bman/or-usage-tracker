@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=OR Usage Tracker
+Comment=Track your OpenRouter API usage and free request limits
+# This is a template. The install.sh script generates the proper desktop entry
+# with the correct absolute paths to the virtualenv launcher.
+# After running install.sh, see ~/.local/share/applications/or-usage-tracker.desktop
+Exec=./run
+Icon=application-internet
+Terminal=false
+Type=Application
+Categories=Network;Utility;
+Keywords=OpenRouter;API;Usage;Tracker;
+StartupNotify=true
+StartupWMClass=or-usage-tracker

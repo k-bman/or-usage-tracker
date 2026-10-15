@@ -1,0 +1,53 @@
+[build-system]
+# setuptools >= 77 is required for the PEP 639 SPDX license expression below.
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "or-usage-tracker"
+version = "1.0.0"
+description = "OpenRouter usage monitor — compact desktop app for tracking daily free-model request quota"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "LGPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [
+    {name = "k-bman"},
+]
+keywords = ["openrouter", "api", "monitor", "qt", "pyqt", "pyside"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    # No "License ::" classifier: PEP 639 supersedes it with the SPDX
+    # `license` expression above, and setuptools rejects having both.
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Utilities",
+    "Topic :: Internet :: WWW/HTTP",
+]
+dependencies = [
+    "PySide6>=6.5",
+    "keyring>=23.0",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-qt",
+]
+
+[project.scripts]
+ortracker = "ortracker.gui:run"
+
+[tool.setuptools.packages.find]
+include = ["ortracker*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

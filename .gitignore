@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# pytest
+.pytest_cache/
+.pytest/
+
+# Testing & coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.nox/
+.tox/
+
+# Type checking
+.mypy_cache/
+.ruff_cache/
+
+# Environment
+.env
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+*.rej
+
+# OS
+.DS_Store
+Thumbs.db
+
+# App config and secrets
+# The app normally writes to ~/.config/ortracker/config.json (XDG). These
+# entries only matter if XDG_CONFIG_HOME is ever pointed inside the repo.
+.config/
+config.json
+*.local.json
+.env
+.envrc
+.direnv/
+
+# Logs
+*.log
+logs/
