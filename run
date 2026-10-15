@@ -1,20 +1,39 @@
 #!/usr/bin/env bash
 #
-# Convenience launcher: runs the app with the project virtualenv's Python.
+# Convenience launcher: runs the app with whichever interpreter can import it.
 #
-# Useful when the system interpreter has no PySide6 (e.g. Arch) and for
-# double-clicking ("Run as a Program") in a file manager, where run.py's
-# shebang would otherwise pick the system Python.
+# Prefers the project virtualenv's Python when one exists (install.sh --venv),
+# otherwise falls back to the system interpreter (install.sh native mode).
+#
+# Useful when the distribution has no PySide6 bindings (e.g. older Arch) and for
+# double-clicking ("Run as a Program") in a file manager, where run.py's shebang
+# would otherwise pick the system Python.
 
 set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_PY="$DIR/.venv/bin/python"
 
-if [ ! -x "$VENV_PY" ]; then
-    echo "No virtualenv found at $VENV_PY" >&2
-    echo "Run the installer first:  $DIR/install.sh" >&2
-    exit 1
+if [ -x "$VENV_PY" ] && "$VENV_PY" -c "import PySide6" 2>/dev/null; then
+    exec "$VENV_PY" "$DIR/run.py" "$@"
 fi
 
-exec "$VENV_PY" "$DIR/run.py" "$@"
+if command -v python3 &>/dev/null && python3 -c "import PySide6" 2>/dev/null; then
+    exec python3 "$DIR/run.py" "$@"
+fi
+
+if [ -x "$VENV_PY" ]; then
+    echo "The virtualenv at $DIR/.venv cannot import PySide6." >&2
+    echo "Re-create it with:  $DIR/install.sh --venv" >&2
+else
+    echo "No usable PySide6 found." >&2
+    echo ""
+    echo "Install it with your package manager, for example:" >&2
+    echo "  sudo pacman -S --needed pyside6 python-keyring   # Arch" >&2
+    echo "  sudo dnf install python3-pyside6 python3-keyring # Fedora" >&2
+    echo "  sudo apt install python3-pyside6.qtwidgets python3-keyring" >&2
+    echo ""
+    echo "Or let the installer fall back to a virtualenv:" >&2
+    echo "  $DIR/install.sh --venv" >&2
+fi
+exit 1

@@ -30,9 +30,9 @@ Usage: $0 [--purge]
 
 Uninstall the OpenRouter usage monitor (ortracker).
 
-  --purge    Also remove the virtualenv, the editable-install metadata and
-             the app config, and offer to delete the API key from the system
-             keyring.
+  --purge    Also remove the virtualenv (if there is one), the editable-install
+             metadata and the app config, and offer to delete the API key from
+             the system keyring.
   -h, --help Show this help.
 
 Without --purge only the desktop entry and the ~/.local/bin launcher are
@@ -84,7 +84,9 @@ elif [ ! -L "$LAUNCHER" ]; then
 else
     target="$(readlink -f "$LAUNCHER" 2>/dev/null || true)"
     case "$target" in
-        "$VENV_DIR"/*)
+        "$SCRIPT_DIR"/*)
+            # Either mode's launcher (./run, or .venv/bin/ortracker) lives
+            # inside this project directory, so one rule covers both.
             rm -f "$LAUNCHER"
             removed "$LAUNCHER"
             ;;
@@ -102,14 +104,25 @@ else
 fi
 
 # --- Keyring ---
-# Done before the virtualenv is deleted, because it needs the venv's keyring.
+# Done before the virtualenv is deleted, because it needs an interpreter that
+# can import keyring: the venv's in venv mode, the system one in native mode.
+keyring_python() {
+    if [ -x "$VENV_PY" ] && "$VENV_PY" -c "import keyring" 2>/dev/null; then
+        echo "$VENV_PY"
+    elif command -v python3 &>/dev/null && python3 -c "import keyring" 2>/dev/null; then
+        command -v python3
+    fi
+}
+
 delete_keyring_entry() {
-    if [ ! -x "$VENV_PY" ]; then
-        echo "  Cannot check the keyring: $VENV_PY is gone."
+    local py
+    py="$(keyring_python)"
+    if [ -z "$py" ]; then
+        echo "  Cannot check the keyring: no interpreter with the keyring module."
         echo "  Remove it with: secret-tool delete service ortracker username default"
         return
     fi
-    "$VENV_PY" - <<'PY'
+    "$py" - <<'PY'
 import keyring
 
 try:
@@ -142,27 +155,34 @@ if [ "$PURGE" -eq 1 ]; then
     if [ -d "$VENV_DIR" ]; then
         rm -rf "$VENV_DIR"
         removed "$VENV_DIR"
-    else
-        echo "  Not found: $VENV_DIR"
     fi
 
     if [ -d "$EGG_INFO_DIR" ]; then
         rm -rf "$EGG_INFO_DIR"
         removed "$EGG_INFO_DIR"
-    else
-        echo "  Not found: $EGG_INFO_DIR"
     fi
 
     if [ -d "$CONFIG_DIR" ]; then
         rm -rf "$CONFIG_DIR"
         removed "$CONFIG_DIR"
-    else
-        echo "  Not found: $CONFIG_DIR"
+    fi
+
+    if [ ! -d "$VENV_DIR" ]; then
+        # Native mode: nothing was pip-installed, so there is nothing to
+        # uninstall beyond the config above. The distribution packages are
+        # shared with other applications, so we only ever offer the command.
+        echo ""
+        echo "This looks like a native (distribution package) install, so the"
+        echo "system Python was never modified. To drop the shared packages too,"
+        echo "if no other application needs them:"
+        echo "  sudo pacman -Rns pyside6 python-keyring   # Arch"
+        echo "  sudo dnf remove python3-pyside6 python3-keyring"
+        echo "  sudo apt remove python3-pyside6.qtwidgets python3-keyring"
     fi
 else
     echo ""
-    echo "Run this again with --purge to also remove the virtualenv, the"
-    echo "editable-install metadata and ~/.config/ortracker."
+    echo "Run this again with --purge to also remove the virtualenv (if there"
+    echo "is one), the editable-install metadata and ~/.config/ortracker."
 fi
 
 # --- Summary ---

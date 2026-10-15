@@ -8,7 +8,7 @@ of quietly switching interpreters.
 Use one of these instead, all of which pick the right interpreter for you:
 
     ortracker                (symlinked into ~/.local/bin by install.sh)
-    ./run                    (wrapper around the project virtualenv)
+    ./run                    (virtualenv if present, else system Python)
     ./install.sh             (initial setup)
 """
 
@@ -58,11 +58,11 @@ try:
 except ImportError:
     message = (
         f"PySide6 is not installed for {sys.executable}.\n\n"
-        "Run the app with the project's virtualenv instead:\n"
+        "Run the app with an interpreter that has it:\n"
         "  ortracker\n"
-        "  (or: ./run, from the project directory)\n\n"
-        "If that is not available yet, install the dependencies first:\n"
-        "  ./install.sh"
+        "  (or: ./run, which prefers the project virtualenv when it has one)\n\n"
+        "If neither has it yet, install the dependencies first:\n"
+        "  ./install.sh --venv"
     )
     print(message, file=sys.stderr)
     _notify(message)

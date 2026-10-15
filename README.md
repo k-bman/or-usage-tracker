@@ -12,10 +12,18 @@ cd or-usage-tracker
 ./install.sh
 ```
 
-That creates a virtualenv in `./.venv`, installs the dependencies (~300 MB, mostly
-Qt), adds an "OR Usage Tracker" entry to your application menu, links an
-`ortracker` command into `~/.local/bin`. A first run takes a
-couple of minutes, mostly downloading PySide6; later runs reuse the venv.
+The installer picks one of two modes automatically:
+
+- **native** — uses your distribution's PySide6 / keyring / requests packages
+  with the system Python. Nothing is downloaded and no virtualenv is created.
+  If the system Python cannot import the dependencies, the installer prints the
+  package command for your distro and falls back to:
+- **venv** — creates `./.venv` and installs the dependencies from PyPI
+  (~300 MB, mostly the bundled Qt in the PySide6 wheel).
+
+Either way it adds an "OR Usage Tracker" entry to your application menu and
+links an `ortracker` command into `~/.local/bin`. Force one with
+`./install.sh --native` or `./install.sh --venv`.
 
 Then launch it — from the application menu, or:
 
@@ -52,17 +60,17 @@ virtualenv, the config and, when you confirm the prompt, the stored API key).
 - Qt's native libraries — already present on any desktop system; only a bare
   server or container needs them installed explicitly (see below)
 
-Python dependencies (**PySide6-Essentials**, `keyring`, `requests`) are
-installed by `install.sh` into a virtualenv, so nothing needs to be installed
-system-wide.
+Python dependencies (**PySide6**, `keyring`, `requests`) come either from your
+distribution's packages (native mode) or from a project virtualenv (venv
+mode), so nothing is ever installed into your system Python.
 
 ## Installation
 
 ### System packages
 
-pip can supply the Python bindings but *not* Qt's native libraries. On a
-desktop system these are already present; on a minimal server or container,
-install them first:
+Qt's native libraries are needed either way — pip can supply the Python
+bindings but *not* these. On a desktop system they are already present; on a
+minimal server or container, install them first:
 
 ```bash
 # Arch
@@ -73,10 +81,22 @@ sudo dnf install mesa-libGL libxkbcommon fontconfig
 sudo apt install libegl1 libgl1 libxkbcommon0 libfontconfig1
 ```
 
-You do **not** need to install PySide6, keyring or requests yourself — the
-installer puts them in the virtualenv. (Note that most distributions don't
-package PySide6's Python bindings at all; see
-[Why a virtualenv](#why-a-virtualenv).)
+For native mode you also need the Python packages themselves:
+
+```bash
+# Arch
+sudo pacman -S --needed pyside6 python-keyring
+# Fedora
+sudo dnf install python3-pyside6 python3-keyring
+# Ubuntu/Debian
+sudo apt install python3-pyside6.qtwidgets python3-keyring
+```
+
+(`requests` is packaged everywhere already.) If you would rather not install
+those, skip them — the installer detects that the system Python cannot import
+the dependencies and falls back to venv mode on its own. For native Wayland
+rendering rather than XWayland, install the Qt Wayland plugin too
+(`qt6-wayland`); the installer warns if it is missing.
 
 ### Install
 
@@ -86,18 +106,41 @@ cd or-usage-tracker
 ./install.sh
 ```
 
-The installer creates `./.venv`, installs the app and its runtime
-dependencies, verifies PySide6 / the Wayland plugin / your keyring backend,
-installs a desktop entry in `~/.local/share/applications/`, and links
-`ortracker` into `~/.local/bin`. It does not install the test extras and does
-not run the test suite.
+The installer picks a mode by probing the system Python (see
+[Two installation modes](#two-installation-modes)), verifies PySide6 / the
+Wayland plugin / your keyring backend, installs a desktop entry in
+`~/.local/share/applications/`, and links `ortracker` into `~/.local/bin`. It
+does not install the test extras and does not run the test suite.
 
-The virtualenv means your system Python is left untouched, and
+Nothing is ever installed into your system Python, and
 `./uninstall.sh --purge` removes everything it added: the desktop entry, the
-`~/.local/bin` launcher, `./.venv`, the editable-install metadata,
-`~/.config/ortracker`, and — if you confirm the prompt — the API key in your
-keyring. Without `--purge` it only removes the desktop entry and the launcher,
-and prints what is left.
+`~/.local/bin` launcher, `./.venv` (if there is one), the editable-install
+metadata, `~/.config/ortracker`, and — if you confirm the prompt — the API key
+in your keyring. Without `--purge` it only removes the desktop entry and the
+launcher, and prints what is left.
+
+### Two installation modes
+
+| | native | venv |
+|---|---|---|
+| Interpreter | system Python | `./.venv` |
+| PySide6 from | your distro's package | PyPI |
+| Disk | ~9 MB (Qt usually already installed) | ~300 MB |
+| After an OS upgrade | keeps working | must re-run `./install.sh --venv` |
+| Qt version | whatever the distro ships (6.11.2 on Arch today) | whatever PyPI ships (6.12.0 today) |
+| Needs `--break-system-packages` | never | never |
+
+**native** is the default when the system Python can import PySide6, keyring
+and requests. Nothing is downloaded, no virtualenv is created, and because
+Arch's `pyside6` binds to the Qt you already have, the marginal cost is a 9 MB
+package rather than the 300 MB the PyPI wheel needs (it bundles its own copy of
+Qt).
+
+**venv** is the fallback, and the right choice when your distribution has no
+PySide6 bindings, or when you need a newer PySide6 than it ships.
+
+Force either with `./install.sh --native` or `./install.sh --venv`. Forcing
+`--native` fails loudly rather than quietly doing something else.
 
 A **management key** is recommended over a regular API key — the usage
 endpoints need account-level access, and management keys cannot make
@@ -108,16 +151,33 @@ the app falls back to `/key` for basic key info but shows less detail.
 
 The app is a Qt6 (PySide6) application and runs natively on Wayland, so it works on Hyprland as-is. A few notes specific to Arch + Hyprland:
 
-### Why a virtualenv
+### Why Arch now installs natively
 
-Arch does **not** package the PySide6 Python bindings — `python-pyside6` is in
-neither the `extra` repository nor the AUR (the `pyside6` package is the C++
-Qt6 library, not the Python module). `install.sh` therefore creates `./.venv`
-and installs everything from PyPI there. The installed desktop entry runs the
-venv interpreter.
+Earlier versions of this README claimed Arch packages no PySide6 Python
+bindings and always used a virtualenv. That is no longer true — Arch's `extra`
+repository now ships them as **`pyside6`** (it `Provides: qt6-python-bindings`
+and installs `usr/lib/python3.x/site-packages/PySide6/`):
 
-The PySide6 wheels are `abi3` builds (`cp310-abi3`), so one wheel works across
-Python 3.10–3.15, including Arch's current Python.
+```bash
+pacman -Si pyside6 | grep -E 'Description|Provides'
+sudo pacman -S --needed pyside6 python-keyring
+./install.sh          # detects native mode automatically
+```
+
+So on Arch the default is native mode: ~9 MB of bindings against the Qt you
+already have, versus ~300 MB for the PyPI wheel with its bundled Qt.
+
+The venv mode is still there for when you want a newer PySide6 than Arch ships,
+or if Arch is mid-rebuild after a Python upgrade and the bindings are briefly
+unavailable. Its PySide6 wheels are `abi3` builds (`cp310-abi3`), so one wheel
+works across Python 3.10–3.15.
+
+One thing to know about a project-local `.venv`: it is not self-contained. It
+symlinks to `/usr/bin/python3`, and `pyvenv.cfg` records `home = /usr/bin`, so
+when Arch upgrades Python and removes the old interpreter, the venv's `bin/python`
+becomes a dangling symlink and the app stops working until you re-run
+`./install.sh --venv`. Native mode has no such coupling — the app is pure Python
+and keeps running across OS upgrades.
 
 ### Why PySide6-Essentials
 
@@ -257,7 +317,11 @@ Pick whichever fits:
 | `ortracker` | Anywhere, after `./install.sh` (symlinked into `~/.local/bin`) |
 | App menu | "OR Usage Tracker" from your desktop launcher |
 | `./run` | From the project directory, or "Run as a Program" in a file manager |
-| `./.venv/bin/python run.py` | If you prefer to be explicit about the interpreter |
+| `./.venv/bin/python run.py` | venv mode only, if you prefer to be explicit |
+
+All of these go through `./run`, which prefers the project virtualenv when one
+exists and otherwise uses the system interpreter — so the same commands work
+in either installation mode.
 
 `run.py` is a plain launcher: it uses whichever interpreter invoked it and
 fails with an actionable message if that interpreter has no PySide6 (it also
@@ -349,10 +413,10 @@ or-usage-tracker/
 │   ├── test_api_client.py   # API client tests
 │   ├── test_state_config.py # Config, state and credential tests
 │   └── test_gui.py          # PySide6 GUI and system tray tests (pytest-qt)
-├── run                      # Convenience launcher (uses ./.venv)
+├── run                      # Launcher: prefers ./.venv, else the system Python
 ├── run.py                   # Standalone launcher (uses the invoking interpreter)
-├── install.sh               # Installer (.venv, desktop entry, launcher; no tests)
-├── uninstall.sh             # Uninstaller script
+├── install.sh               # Installer (native or venv mode; desktop entry, launcher)
+├── uninstall.sh             # Uninstaller script (--purge for a full removal)
 └── or-usage-tracker.desktop # Desktop entry file
 ```
 
@@ -388,7 +452,9 @@ If `/keys` or `/activity` endpoints fail (requires Management key), the app fall
 ## Running tests
 
 ```bash
-# The installer brings in the runtime dependencies only; add the test extras:
+# The installer brings in the runtime dependencies only, and in native mode
+# there is no virtualenv at all. Contributors want the venv:
+./install.sh --venv
 ./.venv/bin/python -m pip install -e ".[dev]"
 
 ./.venv/bin/python -m pytest tests/ -q
@@ -412,11 +478,12 @@ push and pull request, plus a history-wide secret scan with
 
 ### Secret scanning locally
 
-A `pre-commit` hook blocks commits that contain hardcoded secrets
-(API keys, private keys, tokens):
+Two `pre-commit` hooks run locally: one blocks commits containing hardcoded
+secrets (API keys, private keys, tokens), the other lints the shell scripts
+with shellcheck.
 
 ```bash
-sudo pacman -S gitleaks pre-commit   # or: pip install pre-commit
+sudo pacman -S gitleaks shellcheck pre-commit   # or: pip install pre-commit
 pre-commit install
 ```
 
@@ -451,10 +518,15 @@ Tests use mocked API responses — no real OpenRouter account or key is needed.
 ./uninstall.sh --purge  # everything the installer added
 ```
 
-`--purge` additionally removes `./.venv`, the `or_usage_tracker.egg-info`
-metadata and `~/.config/ortracker`, and asks before deleting your stored API
-key from the system keyring. Either way the script prints a summary of what it
-removed and what it deliberately left alone.
+`--purge` additionally removes `./.venv` (if there is one), the
+`or_usage_tracker.egg-info` metadata and `~/.config/ortracker`, and asks before
+deleting your stored API key from the system keyring. Either way the script
+prints a summary of what it removed and what it deliberately left alone.
+
+In native mode nothing was pip-installed, so there is nothing to uninstall from
+your system Python; `--purge` prints the (never executed) package removal
+command for your distribution instead, since those packages are likely shared
+with your other applications.
 
 The application directory itself is never deleted by the script. To remove the
 source as well:
@@ -462,9 +534,11 @@ source as well:
 rm -rf /path/to/or-usage-tracker
 ```
 
-If you ever remove the keyring entry by hand instead:
+If you ever remove the keyring entry by hand instead (use whichever
+interpreter has the `keyring` module — the venv's in venv mode, `python3` in
+native mode):
 ```bash
-./.venv/bin/python -c "import keyring; keyring.delete_password('ortracker', 'default')"
+python3 -c "import keyring; keyring.delete_password('ortracker', 'default')"
 ```
 
 ## Security notes
@@ -481,8 +555,9 @@ If you ever remove the keyring entry by hand instead:
 
 | Symptom | Fix |
 |---------|-----|
-| `No module named PySide6` | run `./install.sh`, then launch with `ortracker` or `./run` |
+| `No module named PySide6` | install the packages for your distro, or run `./install.sh --venv` |
 | `libEGL.so.1: cannot open shared object file` | Qt's native libraries are missing; see [System packages](#system-packages) |
+| Venv stopped working after an OS upgrade | expected: a project venv symlinks `/usr/bin/python3`, so a Python upgrade breaks it. Re-run `./install.sh --venv`, or use native mode |
 | Nothing happens when double-clicking `run.py` | the shebang uses the system Python; use `./run` ("Run as a Program") or the app menu instead |
 | App opens as a black or blank window | try `QT_QPA_PLATFORM=xcb` |
 | Keyring prompt on every launch | keyring is locked; log out and back in |
